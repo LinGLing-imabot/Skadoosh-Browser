@@ -1,35 +1,30 @@
-const CACHE_NAME = 'uv-cache-v1';
+// uv.sw.js — Universal service worker for Skadoosh Browser
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', e => {
   self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+self.addEventListener('activate', e => {
+  clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
 
-  // Only handle /service/* requests
+  // Only intercept /service/... requests
   if (url.pathname.startsWith('/service/')) {
-    event.respondWith(
-      (async () => {
-        try {
-          const targetUrl = decodeURIComponent(url.pathname.replace('/service/', ''));
-          const response = await fetch(targetUrl, { mode: 'cors' });
-          const contentType = response.headers.get('content-type') || '';
+    const targetUrl = decodeURIComponent(url.pathname.replace('/service/', ''));
 
-          // Clone and return the response
-          const cloned = response.clone();
-          return cloned;
-        } catch (err) {
-          return new Response('⚠️ Failed to load content: ' + err, {
-            status: 500,
-            headers: { 'Content-Type': 'text/plain' },
-          });
-        }
-      })()
+    e.respondWith(
+      fetch(targetUrl, {
+        mode: 'cors',
+        credentials: 'omit',
+        headers: e.request.headers
+      }).catch(err => new Response('❌ Failed to fetch URL: ' + targetUrl, { status: 500 }))
     );
+    return;
   }
+
+  // Otherwise, default fetch
+  e.respondWith(fetch(e.request));
 });

@@ -1,30 +1,21 @@
-// uv.sw.js — Universal service worker for Skadoosh Browser
+const CACHE_NAME = "skadoosh-cache-v1";
+const urlsToCache = ["/","/index.html"];
 
-self.addEventListener('install', e => {
-  self.skipWaiting();
+self.addEventListener("install", event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache=>cache.addAll(urlsToCache))
+  );
 });
 
-self.addEventListener('activate', e => {
-  clients.claim();
-});
-
-self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
-
-  // Only intercept /service/... requests
-  if (url.pathname.startsWith('/service/')) {
-    const targetUrl = decodeURIComponent(url.pathname.replace('/service/', ''));
-
-    e.respondWith(
-      fetch(targetUrl, {
-        mode: 'cors',
-        credentials: 'omit',
-        headers: e.request.headers
-      }).catch(err => new Response('❌ Failed to fetch URL: ' + targetUrl, { status: 500 }))
-    );
-    return;
-  }
-
-  // Otherwise, default fetch
-  e.respondWith(fetch(e.request));
+self.addEventListener("fetch", event => {
+  event.respondWith(
+    caches.match(event.request).then(response=>{
+      return response || fetch(event.request).then(fetchResponse=>{
+        return caches.open(CACHE_NAME).then(cache=>{
+          cache.put(event.request, fetchResponse.clone());
+          return fetchResponse;
+        });
+      });
+    }).catch(()=>new Response("Offline"))
+  );
 });
